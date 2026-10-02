@@ -109,28 +109,17 @@ const rudderPad = document.getElementById('rudder-pad')
 const throttlePad = document.getElementById('throttle-pad')
 const horn = document.getElementById('horn')
 if (!rudderPad || !throttlePad || !(horn instanceof HTMLButtonElement)) throw new Error('Missing helm controls')
-const helm = new Helm(canvas, rudderPad, throttlePad, horn)
 const hud = new Hud()
 const audio = new RiverAudio()
 
 function begin(): void {
-  if (helm.started) return
-  helm.started = true
   document.getElementById('intro')?.classList.add('hidden')
   audio.resume()
+  if (canvas instanceof HTMLCanvasElement) canvas.focus({ preventScroll: true })
 }
 
-document.getElementById('start')?.addEventListener('click', begin)
-window.addEventListener(
-  'keydown',
-  (event) => {
-    if (!helm.started) begin()
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) {
-      event.preventDefault()
-    }
-  },
-  true,
-)
+const helm = new Helm(canvas, rudderPad, throttlePad, horn, begin)
+document.getElementById('start')?.addEventListener('click', () => helm.engage())
 
 function resize(): void {
   const width = window.innerWidth
@@ -158,19 +147,19 @@ const maxSteps = 8
 function frame(now: number): void {
   requestAnimationFrame(frame)
   try {
-    const raw = Math.min(0.25, (now - last) / 1000)
+    const raw = Math.min(0.25, Math.max(0, (now - last) / 1000))
     last = now
-    // A 60 Hz frame is shorter than one physics step. Keep the leftover
-    // so throttle and rudder still advance on a fast display.
+    // Drive the helm from the real frame delta. A held key used to add only
+    // dt * 0.62 to the target, then a damper kept most of that, so knots
+    // barely left 0. The physics step stays fixed; leftover time still carries.
+    helm.update(raw)
     accumulator = Math.min(accumulator + raw, step * maxSteps)
-    let horn = false
+    let horn = helm.hornEdge
     let cleared = false
     let bumped = false
     let state = latest
     while (accumulator >= step) {
-      helm.update(step)
       if (helm.consumeReset()) launch.reset()
-      if (helm.hornEdge) horn = true
       state = launch.update(step, helm, elapsed)
       if (state.justCleared) cleared = true
       if (state.bumped) bumped = true
@@ -193,7 +182,6 @@ function frame(now: number): void {
       forwardZ: state.forwardZ,
       speed: Math.max(0, state.speed),
     })
-    water.renderReflection(renderer, scene, camera)
     hud.update(state, helm.cameraMode)
     audio.update(state.speed, state.throttle)
     if (horn) audio.horn()
@@ -203,6 +191,7 @@ function frame(now: number): void {
       audio.gull()
       gullIn = 9 + Math.random() * 8
     }
+    water.renderReflection(renderer, scene, camera)
     composer.render()
   } catch (error) {
     if (!reported) {

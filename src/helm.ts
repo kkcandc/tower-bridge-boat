@@ -24,28 +24,41 @@ export class Helm {
   private lastY = 0
   private hornWas = false
 
-  constructor(canvas: HTMLCanvasElement, rudderPad: HTMLElement, throttlePad: HTMLElement, hornButton: HTMLButtonElement) {
-    window.addEventListener('keydown', (event) => {
-      if (!this.started) return
-      if (event.repeat && this.keys.has(event.code)) return
-      this.keys.add(event.code)
-      if (event.code === 'KeyC') {
-        const index = MODES.indexOf(this.cameraMode)
-        this.cameraMode = MODES[(index + 1) % MODES.length]
-      }
-      if (event.code === 'KeyR') this.resetEdge = true
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) {
-        event.preventDefault()
-      }
-    })
+  constructor(
+    canvas: HTMLCanvasElement,
+    rudderPad: HTMLElement,
+    throttlePad: HTMLElement,
+    hornButton: HTMLButtonElement,
+    private readonly onEngage: () => void,
+  ) {
+    window.addEventListener(
+      'keydown',
+      (event) => {
+        this.engage()
+        const fresh = !this.keys.has(event.code)
+        this.keys.add(event.code)
+        if (fresh && event.code === 'KeyC') {
+          const index = MODES.indexOf(this.cameraMode)
+          this.cameraMode = MODES[(index + 1) % MODES.length]
+        }
+        if (fresh && event.code === 'KeyR') this.resetEdge = true
+        if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) {
+          event.preventDefault()
+        }
+      },
+      true,
+    )
     window.addEventListener('keyup', (event) => {
       this.keys.delete(event.code)
     })
-    window.addEventListener('blur', () => this.keys.clear())
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) this.keys.clear()
+    })
 
     this.bindPad(rudderPad, 'x')
     this.bindPad(throttlePad, 'y')
     hornButton.addEventListener('pointerdown', (event) => {
+      this.engage()
       event.preventDefault()
       this.hornWas = false
       this.keys.add('KeyH')
@@ -81,21 +94,29 @@ export class Helm {
     canvas.addEventListener('pointercancel', endLook)
   }
 
+  engage(): void {
+    if (this.started) return
+    this.started = true
+    this.onEngage()
+  }
+
   private bindPad(pad: HTMLElement, axis: 'x' | 'y'): void {
+    const track = pad.querySelector('.track') ?? pad
     const move = (event: PointerEvent) => {
-      const rect = pad.getBoundingClientRect()
+      const rect = track.getBoundingClientRect()
       if (axis === 'x') {
         const next = ((event.clientX - rect.left) / rect.width) * 2 - 1
         this.rudderPointer = clamp(next, -1, 1)
         this.rudderHeld = true
       } else {
-        const t = 1 - (event.clientY - rect.top) / rect.height
+        const t = 1 - (event.clientY - rect.top) / Math.max(rect.height, 1)
         this.throttlePointer = clamp(t * 1.3 - 0.3, -0.3, 1)
         this.throttleHeld = true
+        this.throttle = this.throttlePointer
       }
     }
     pad.addEventListener('pointerdown', (event) => {
-      if (!this.started) return
+      this.engage()
       event.preventDefault()
       move(event)
       try {
@@ -132,13 +153,15 @@ export class Helm {
     this.rudder += (rudderTarget - this.rudder) * (1 - Math.exp(-rudderLambda * dt))
     if (Math.abs(this.rudder) < 0.001) this.rudder = 0
 
-    let throttleTarget = this.throttle
-    if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) throttleTarget += dt * 0.62
-    if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) throttleTarget -= dt * 0.78
-    if (this.throttleHeld) throttleTarget = this.throttlePointer
-    throttleTarget = clamp(throttleTarget, -0.3, 1)
-    const throttleLambda = this.throttleHeld ? 12 : 5
-    this.throttle += (throttleTarget - this.throttle) * (1 - Math.exp(-throttleLambda * dt))
+    const ahead = this.keys.has('KeyW') || this.keys.has('ArrowUp')
+    const astern = this.keys.has('KeyS') || this.keys.has('ArrowDown')
+    if (this.throttleHeld) {
+      this.throttle = this.throttlePointer
+    } else if (ahead !== astern) {
+      const target = ahead ? 1 : -0.3
+      this.throttle += (target - this.throttle) * (1 - Math.exp(-7 * dt))
+    }
+    this.throttle = clamp(this.throttle, -0.3, 1)
 
     const horn = this.keys.has('KeyH') || this.keys.has('Space')
     this.hornEdge = horn && !this.hornWas
