@@ -5,7 +5,7 @@ import {
   DirectionalLight,
   FogExp2,
   HemisphereLight,
-  PCFSoftShadowMap,
+  PCFShadowMap,
   PerspectiveCamera,
   PMREMGenerator,
   Scene,
@@ -19,7 +19,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { RiverAudio } from './audio'
-import { Launch } from './boat'
+import { Launch, type BoatState } from './boat'
 import { createBridge } from './bridge'
 import { CameraRig } from './cameraRig'
 import { Helm } from './helm'
@@ -32,22 +32,24 @@ import { createWorld } from './world'
 const canvas = document.getElementById('scene')
 if (!(canvas instanceof HTMLCanvasElement)) throw new Error('Missing canvas')
 
-const quality =
-  window.matchMedia('(pointer: coarse)').matches || (navigator.hardwareConcurrency ?? 8) <= 4
+const quality: 'high' | 'low' =
+  window.matchMedia('(pointer: coarse)').matches ||
+  (navigator.hardwareConcurrency ?? 8) <= 4 ||
+  softwareRenderer()
     ? 'low'
     : 'high'
 
 const renderer = new WebGLRenderer({ canvas, antialias: quality === 'high', powerPreference: 'high-performance' })
 renderer.outputColorSpace = SRGBColorSpace
 renderer.toneMapping = ACESFilmicToneMapping
-renderer.toneMappingExposure = 1.12
+renderer.toneMappingExposure = 0.96
 renderer.shadowMap.enabled = true
-renderer.shadowMap.type = PCFSoftShadowMap
+renderer.shadowMap.type = PCFShadowMap
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality === 'high' ? 1.6 : 1.15))
 
 const scene = new Scene()
-const horizon = new Color('#c99280')
-scene.fog = new FogExp2(horizon, 0.0037)
+const horizon = new Color('#8f6d64')
+scene.fog = new FogExp2(horizon, 0.00235)
 scene.background = horizon
 renderer.setClearColor(horizon, 1)
 
@@ -70,7 +72,7 @@ scene.add(spray.points)
 
 const hemi = new HemisphereLight('#9aafd0', '#1a140f', 0.62)
 scene.add(hemi)
-const key = new DirectionalLight('#ffd3b4', 2.7)
+const key = new DirectionalLight('#ffd3b4', 1.85)
 key.position.set(-70, 64, -110)
 key.target.position.set(0, 16, -20)
 key.castShadow = true
@@ -97,7 +99,8 @@ pmrem.dispose()
 
 const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, camera))
-const bloom = new UnrealBloomPass(new Vector2(window.innerWidth, window.innerHeight), quality === 'high' ? 0.38 : 0.22, 0.55, 0.86)
+const bloom = new UnrealBloomPass(new Vector2(window.innerWidth, window.innerHeight), 0.36, 0.5, 0.84)
+bloom.enabled = quality === 'high'
 composer.addPass(bloom)
 composer.addPass(new OutputPass())
 
@@ -121,10 +124,9 @@ document.getElementById('start')?.addEventListener('click', begin)
 window.addEventListener(
   'keydown',
   (event) => {
-    if (!helm.started) {
-      begin()
+    if (!helm.started) begin()
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) {
       event.preventDefault()
-      event.stopImmediatePropagation()
     }
   },
   true,
@@ -147,44 +149,82 @@ let last = performance.now()
 let elapsed = 0
 let gullIn = 6
 let shake = 0
+let reported = false
+let latest: BoatState
+const step = 1 / 45
 
 function frame(now: number): void {
-  const dt = Math.min(0.033, (now - last) / 1000)
-  last = now
-  elapsed += dt
-  helm.update(dt)
-  if (helm.consumeReset()) launch.reset()
-  const state = launch.update(dt, helm, elapsed)
-  world.update(elapsed)
-  spray.update(dt, state)
-  if (state.bumped) shake = 0.18
-  shake = Math.max(0, shake - dt)
-  rig.update(dt, state, helm.cameraMode, helm.lookYaw, helm.lookPitch, elapsed)
-  if (shake > 0) camera.position.y += Math.sin(elapsed * 48) * shake
-  sky.position.set(camera.position.x, 0, camera.position.z)
-  water.follow(camera.position.x, camera.position.z)
-  water.setWake(elapsed, {
-    x: state.x,
-    z: state.z,
-    forwardX: state.forwardX,
-    forwardZ: state.forwardZ,
-    speed: Math.max(0, state.speed),
-  })
-  water.renderReflection(renderer, scene, camera)
-  hud.update(state, helm.cameraMode)
-  audio.update(state.speed, state.throttle)
-  if (helm.hornEdge) audio.horn()
-  if (state.justCleared) audio.victory()
-  gullIn -= dt
-  if (gullIn <= 0) {
-    audio.gull()
-    gullIn = 9 + Math.random() * 8
-  }
-  composer.render()
   requestAnimationFrame(frame)
+  try {
+    const raw = Math.min(0.25, (now - last) / 1000)
+    last = now
+    let bank = raw
+    let horn = false
+    let cleared = false
+    let bumped = false
+    let state = latest
+    let steps = 0
+    while (bank >= step && steps < 10) {
+      helm.update(step)
+      if (helm.consumeReset()) launch.reset()
+      if (helm.hornEdge) horn = true
+      state = launch.update(step, helm, elapsed)
+      if (state.justCleared) cleared = true
+      if (state.bumped) bumped = true
+      elapsed += step
+      bank -= step
+      steps += 1
+    }
+    latest = state
+    if (bumped) shake = 0.18
+    shake = Math.max(0, shake - raw)
+    world.update(elapsed)
+    spray.update(Math.max(raw, step), state)
+    rig.update(Math.max(raw, step), state, helm.cameraMode, helm.lookYaw, helm.lookPitch, elapsed)
+    if (shake > 0) camera.position.y += Math.sin(elapsed * 48) * shake
+    sky.position.set(camera.position.x, 0, camera.position.z)
+    water.follow(camera.position.x, camera.position.z)
+    water.setWake(elapsed, {
+      x: state.x,
+      z: state.z,
+      forwardX: state.forwardX,
+      forwardZ: state.forwardZ,
+      speed: Math.max(0, state.speed),
+    })
+    water.renderReflection(renderer, scene, camera)
+    hud.update(state, helm.cameraMode)
+    audio.update(state.speed, state.throttle)
+    if (horn) audio.horn()
+    if (cleared) audio.victory()
+    gullIn -= raw
+    if (gullIn <= 0) {
+      audio.gull()
+      gullIn = 9 + Math.random() * 8
+    }
+    composer.render()
+  } catch (error) {
+    if (!reported) {
+      reported = true
+      console.error(error)
+    }
+  }
+}
+
+function softwareRenderer(): boolean {
+  try {
+    const probe = document.createElement('canvas')
+    const gl = probe.getContext('webgl2')
+    if (!gl) return false
+    const info = gl.getExtension('WEBGL_debug_renderer_info')
+    const name = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : ''
+    return /swiftshader|llvmpipe|softpipe|software/i.test(name)
+  } catch {
+    return false
+  }
 }
 
 launch.reset()
 const opening = launch.update(0, helm, 0)
+latest = opening
 rig.snap(opening)
 requestAnimationFrame(frame)

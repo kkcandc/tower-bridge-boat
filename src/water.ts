@@ -1,7 +1,7 @@
 import {
   Color,
   FrontSide,
-  HalfFloatType,
+  LinearFilter,
   Matrix4,
   Mesh,
   PerspectiveCamera,
@@ -9,6 +9,8 @@ import {
   PlaneGeometry,
   Scene,
   ShaderMaterial,
+  UniformsLib,
+  UniformsUtils,
   Vector2,
   Vector3,
   Vector4,
@@ -232,41 +234,47 @@ export class RiverSurface {
   private readonly segments: number
 
   constructor(quality: 'high' | 'low', moonDir: Vector3, moonColor: Color, horizon: Color) {
-    this.size = quality === 'high' ? 720 : 520
-    this.segments = quality === 'high' ? 200 : 110
+    this.size = quality === 'high' ? 680 : 480
+    this.segments = quality === 'high' ? 160 : 64
     const geometry = new PlaneGeometry(this.size, this.size, this.segments, this.segments)
     const dirs = WAVES.map((wave) => new Vector2(wave.dirX, wave.dirZ))
     this.renderTarget = new WebGLRenderTarget(512, 512, {
-      type: HalfFloatType,
       depthBuffer: true,
       stencilBuffer: false,
+      magFilter: LinearFilter,
+      minFilter: LinearFilter,
     })
     this.renderTarget.texture.name = 'river-reflection'
 
     this.material = new ShaderMaterial({
       name: 'ThamesWater',
-      uniforms: {
-        mirrorSampler: { value: this.renderTarget.texture },
-        textureMatrix: { value: this.textureMatrix },
-        uTime: { value: 0 },
-        uDir: { value: dirs },
-        uAmp: { value: WAVES.map((wave) => wave.amplitude) },
-        uK: { value: WAVES.map((wave) => waveNumber(wave)) },
-        uSteep: { value: WAVES.map((wave) => wave.steepness) },
-        uSpeed: { value: WAVES.map((wave) => wave.speed) },
-        uMoonDir: { value: moonDir.clone() },
-        uMoonColor: { value: moonColor.clone() },
-        uHorizon: { value: horizon.clone() },
-        uBoatPos: { value: new Vector3() },
-        uBoatForward: { value: new Vector2(0, 1) },
-        uBoatSpeed: { value: 0 },
-        uBank: { value: BANK_X - 1.5 },
-      },
+      uniforms: UniformsUtils.merge([
+        UniformsLib.fog,
+        {
+          mirrorSampler: { value: null },
+          textureMatrix: { value: this.textureMatrix },
+          uTime: { value: 0 },
+          uDir: { value: dirs },
+          uAmp: { value: WAVES.map((wave) => wave.amplitude) },
+          uK: { value: WAVES.map((wave) => waveNumber(wave)) },
+          uSteep: { value: WAVES.map((wave) => wave.steepness) },
+          uSpeed: { value: WAVES.map((wave) => wave.speed) },
+          uMoonDir: { value: moonDir.clone() },
+          uMoonColor: { value: moonColor.clone() },
+          uHorizon: { value: horizon.clone() },
+          uBoatPos: { value: new Vector3() },
+          uBoatForward: { value: new Vector2(0, 1) },
+          uBoatSpeed: { value: 0 },
+          uBank: { value: BANK_X - 1.5 },
+        },
+      ]),
       vertexShader: VERT,
       fragmentShader: FRAG,
       fog: true,
       side: FrontSide,
     })
+    this.material.uniforms.textureMatrix.value = this.textureMatrix
+    this.material.uniforms.mirrorSampler.value = this.renderTarget.texture
 
     this.mesh = new Mesh(geometry, this.material)
     this.mesh.rotation.x = -Math.PI / 2

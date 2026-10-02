@@ -43,4 +43,4 @@ On-screen rudder, throttle, and horn work with a mouse or a finger. Speed is in 
 
 The bridge is original geometry: Portland-stone towers, a blue-and-white bascule and chains, twin high-level walkways, and the centre span you pass under. A square keep sits on the north bank, upstream, so the reach reads as Tower Bridge rather than the plainer bridge further west. Nothing here is a scanned landmark or a downloaded model.
 
-Water height is the same Gerstner swell on the CPU (the hull) and the GPU (the surface). Reflections are a mirrored camera into a float buffer, mixed by Fresnel with moon glitter and the boat’s wake.
+Water height is the same Gerstner swell on the CPU (the hull) and the GPU (the surface). Reflections are a mirrored camera into a color buffer, mixed by Fresnel with moon glitter and the boat’s wake.

@@ -27,7 +27,7 @@ export class Helm {
   constructor(canvas: HTMLCanvasElement, rudderPad: HTMLElement, throttlePad: HTMLElement, hornButton: HTMLButtonElement) {
     window.addEventListener('keydown', (event) => {
       if (!this.started) return
-      if (event.repeat) return
+      if (event.repeat && this.keys.has(event.code)) return
       this.keys.add(event.code)
       if (event.code === 'KeyC') {
         const index = MODES.indexOf(this.cameraMode)
@@ -96,11 +96,23 @@ export class Helm {
     }
     pad.addEventListener('pointerdown', (event) => {
       if (!this.started) return
-      pad.setPointerCapture(event.pointerId)
+      event.preventDefault()
       move(event)
+      try {
+        pad.setPointerCapture(event.pointerId)
+      } catch {
+        // Capture is optional; the pointerdown sample already set the lever.
+      }
     })
     pad.addEventListener('pointermove', (event) => {
-      if (!pad.hasPointerCapture(event.pointerId)) return
+      const captured = (() => {
+        try {
+          return pad.hasPointerCapture(event.pointerId)
+        } catch {
+          return false
+        }
+      })()
+      if (!captured && (event.buttons & 1) === 0) return
       move(event)
     })
     const release = () => {

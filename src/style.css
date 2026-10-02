@@ -373,12 +373,17 @@ h1 {
   letter-spacing: 0.04em;
 }
 
+#webgl-error[hidden] {
+  display: none !important;
+}
+
 #webgl-error {
   position: fixed;
   inset: 0;
   display: grid;
   place-items: center;
   color: var(--cream);
+  background: rgba(7, 10, 14, 0.72);
   z-index: 5;
 }
 

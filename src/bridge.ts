@@ -25,10 +25,10 @@ import { DECK_Y, TOWER_CENTER_X } from './layout'
 type Bucket = Record<string, BufferGeometry[]>
 
 const materials = {
-  stone: new MeshStandardMaterial({ color: '#d5c9b8', roughness: 0.86, metalness: 0.02 }),
+  stone: new MeshStandardMaterial({ color: '#b7a894', roughness: 0.84, metalness: 0.02 }),
   stoneDark: new MeshStandardMaterial({ color: '#8f8476', roughness: 0.9, metalness: 0.03 }),
   stoneLight: new MeshStandardMaterial({ color: '#ebe3d6', roughness: 0.78, metalness: 0.02 }),
-  blue: new MeshStandardMaterial({ color: '#2f74b4', roughness: 0.32, metalness: 0.55 }),
+  blue: new MeshStandardMaterial({ color: '#1f6fbe', roughness: 0.28, metalness: 0.62 }),
   white: new MeshStandardMaterial({ color: '#f3eee4', roughness: 0.48, metalness: 0.08 }),
   iron: new MeshStandardMaterial({ color: '#2c343c', roughness: 0.55, metalness: 0.72 }),
   road: new MeshStandardMaterial({ color: '#3c4148', roughness: 0.9, metalness: 0.05 }),
@@ -38,7 +38,7 @@ const materials = {
 const lampMaterial = new MeshStandardMaterial({
   color: '#000000',
   emissive: new Color('#ffc27a'),
-  emissiveIntensity: 3.2,
+  emissiveIntensity: 6,
   roughness: 1,
 })
 
@@ -263,7 +263,7 @@ function buildBuckets(): { group: Group; lamps: Vector3[]; windows: Vector3[] } 
   }
 
   if (lamps.length) {
-    const lampMesh = new InstancedMesh(new SphereGeometry(0.16, 8, 6), lampMaterial, lamps.length)
+    const lampMesh = new InstancedMesh(new SphereGeometry(0.42, 8, 6), lampMaterial, lamps.length)
     const dummy = new Object3D()
     lamps.forEach((position, index) => {
       dummy.position.copy(position)
@@ -275,7 +275,7 @@ function buildBuckets(): { group: Group; lamps: Vector3[]; windows: Vector3[] } 
   }
 
   const lights: Array<[number, number, number, number, number]> = [
-    [0, DECK_Y - 1.6, 0, 9, 32],
+    [0, DECK_Y - 1.6, 0, 3.5, 26],
     [-20, 40.5, 4, 4.5, 24],
     [20, 40.5, -4, 4.5, 24],
     [-TOWER_CENTER_X, 24, 8, 5, 20],
