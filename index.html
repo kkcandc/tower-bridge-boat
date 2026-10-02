@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Under the Span — Tower Bridge</title>
+    <meta
+      name="description"
+      content="Helm a launch under Tower Bridge at blue hour. Real-feeling water, knots, a compass, and a river log."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,520;0,9..144,640;1,9..144,520&family=Outfit:wght@360;520;650&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+      <div id="vignette" aria-hidden="true"></div>
+
+      <header id="topbar">
+        <div id="tape-window">
+          <div id="tape"></div>
+          <div id="lubber"></div>
+        </div>
+        <p id="wordmark">Halcyon <span>Thames reach</span></p>
+      </header>
+
+      <section id="log" aria-live="polite">
+        <p class="eyebrow">River log</p>
+        <p id="log-line">Tower Bridge, 160 m ahead</p>
+        <p id="log-note">Fair tide. Hold the centre span.</p>
+        <div id="track" aria-hidden="true">
+          <i id="track-bridge"></i>
+          <i id="track-boat"></i>
+        </div>
+      </section>
+
+      <section id="readout" aria-label="Helm">
+        <p id="camera-mode">CHASE</p>
+        <div id="speed-block">
+          <strong id="knots">0.0</strong>
+          <span id="knots-unit">KN</span>
+        </div>
+        <div id="compass-block">
+          <span id="cardinal">E</span>
+          <span id="heading">090°</span>
+        </div>
+        <div id="throttle-meter" aria-hidden="true"><i id="throttle-fill"></i></div>
+      </section>
+
+      <section id="pads">
+        <div class="pad" id="rudder-pad">
+          <span class="pad-label">Rudder</span>
+          <div class="track horizontal">
+            <i id="rudder-knob"></i>
+          </div>
+          <div class="pad-ends"><span>Port</span><span>Stbd</span></div>
+        </div>
+        <button id="horn" type="button">Horn</button>
+        <div class="pad" id="throttle-pad">
+          <span class="pad-label">Throttle</span>
+          <div class="track vertical">
+            <i id="throttle-knob"></i>
+          </div>
+          <div class="pad-ends vertical-ends"><span>Ahead</span><span>Astern</span></div>
+        </div>
+      </section>
+
+      <div id="intro">
+        <div class="intro-card">
+          <p class="eyebrow">Blue hour · River Thames</p>
+          <h1>Under the span</h1>
+          <p class="lede">
+            Tower Bridge is ahead — the one with the towers, not London Bridge. Take Halcyon through the centre opening.
+          </p>
+          <button id="start" type="button">Take the helm</button>
+          <p class="keys">W A S D or arrows · H horn · C camera · R reset · drag to look</p>
+        </div>
+      </div>
+      <p id="webgl-error" hidden>This passage needs WebGL. Try another browser.</p>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
