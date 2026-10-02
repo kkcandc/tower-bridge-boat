@@ -151,20 +151,23 @@ let gullIn = 6
 let shake = 0
 let reported = false
 let latest: BoatState
+let accumulator = 0
 const step = 1 / 45
+const maxSteps = 8
 
 function frame(now: number): void {
   requestAnimationFrame(frame)
   try {
     const raw = Math.min(0.25, (now - last) / 1000)
     last = now
-    let bank = raw
+    // A 60 Hz frame is shorter than one physics step. Keep the leftover
+    // so throttle and rudder still advance on a fast display.
+    accumulator = Math.min(accumulator + raw, step * maxSteps)
     let horn = false
     let cleared = false
     let bumped = false
     let state = latest
-    let steps = 0
-    while (bank >= step && steps < 10) {
+    while (accumulator >= step) {
       helm.update(step)
       if (helm.consumeReset()) launch.reset()
       if (helm.hornEdge) horn = true
@@ -172,8 +175,7 @@ function frame(now: number): void {
       if (state.justCleared) cleared = true
       if (state.bumped) bumped = true
       elapsed += step
-      bank -= step
-      steps += 1
+      accumulator -= step
     }
     latest = state
     if (bumped) shake = 0.18
